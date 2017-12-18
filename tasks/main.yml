@@ -1,0 +1,32 @@
+---
+- name: Add ppa Repository
+  become: yes
+  apt_repository: repo=ppa:nginx/{{ nginx_version }}
+
+- name: Install Nginx
+  become: yes
+  apt: pkg=nginx state=latest
+
+- name: Delete default site
+  file: path=/etc/nginx/sites-enabled/default state=absent
+  register: delete_default_site
+  when: nginx_delete_default_site | bool
+  notify:
+    - restart nginx
+  become: yes
+
+- name: Check Nginx Upstart service definition exists
+  stat: path=/etc/init/nginx.conf
+  register: nginx_upstart
+  become: yes
+
+- name: Configure Nginx log rotation
+  template: src=logrotate_nginx.j2 dest=/etc/logrotate.d/nginx
+  when: nginx_upstart.stat.exists
+  become: yes
+
+- name: Configure Nginx
+  template: src=nginx.conf.j2 dest=/etc/nginx/nginx.conf
+  notify:
+    - restart nginx
+  become: yes
